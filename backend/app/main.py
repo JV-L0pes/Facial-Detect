@@ -188,8 +188,9 @@ async def validate_face(
         embedding = best_face['embedding']
         bbox = best_face['bbox']
         
-        # Verificar liveness
-        liveness_passed = advanced_liveness_detector.add_frame(image_cv, bbox)
+        # Verificar liveness (incluindo landmarks se disponíveis)
+        landmarks = best_face.get('landmarks')
+        liveness_passed = advanced_liveness_detector.add_frame(image_cv, bbox, landmarks)
         
         # Reconhecer face
         user_id, distance = face_recognition.recognize_face(embedding)

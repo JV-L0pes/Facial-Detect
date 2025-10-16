@@ -4,7 +4,11 @@ from typing import List, Tuple
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from config import LIVENESS_FRAMES_REQUIRED, MOVEMENT_THRESHOLD
+from config import (
+    LIVENESS_FRAMES_REQUIRED, MOVEMENT_THRESHOLD, 
+    TEXTURE_VARIANCE_THRESHOLD, BLINK_DETECTION_ENABLED, 
+    EYE_ASPECT_RATIO_THRESHOLD
+)
 
 class LivenessDetector:
     def __init__(self):
@@ -87,15 +91,20 @@ class LivenessDetector:
         }
 
 class AdvancedLivenessDetector:
-    """Detector de liveness mais avançado usando análise de textura"""
+    """Detector de liveness mais avançado usando análise de textura e detecção de piscadas"""
     
     def __init__(self):
         self.frame_history = []
         self.texture_history = []
+        self.eye_aspect_ratios = []
+        self.blink_count = 0
         self.max_history = 10
+        self.blink_threshold = EYE_ASPECT_RATIO_THRESHOLD
+        self.consecutive_frames = 0
+        self.blink_detected = False
     
-    def add_frame(self, face_image: np.ndarray, face_bbox: np.ndarray) -> bool:
-        """Adiciona frame com análise de textura"""
+    def add_frame(self, face_image: np.ndarray, face_bbox: np.ndarray, landmarks: np.ndarray = None) -> bool:
+        """Adiciona frame com análise de textura e detecção de piscadas"""
         # Extrair região da face
         x1, y1, x2, y2 = face_bbox.astype(int)
         face_roi = face_image[y1:y2, x1:x2]
@@ -113,16 +122,47 @@ class AdvancedLivenessDetector:
         self.texture_history.append(texture_score)
         self.frame_history.append(self._normalize_bbox(face_bbox))
         
+        # Detecção de piscadas (se landmarks disponíveis)
+        if BLINK_DETECTION_ENABLED and landmarks is not None:
+            ear = self._calculate_eye_aspect_ratio(landmarks)
+            self.eye_aspect_ratios.append(ear)
+            
+            # Detectar piscada
+            if len(self.eye_aspect_ratios) >= 3:
+                self._detect_blink()
+        
         # Manter histórico limitado
         if len(self.texture_history) > self.max_history:
             self.texture_history.pop(0)
             self.frame_history.pop(0)
+        
+        if len(self.eye_aspect_ratios) > self.max_history:
+            self.eye_aspect_ratios.pop(0)
         
         # Verificar liveness
         if len(self.texture_history) >= LIVENESS_FRAMES_REQUIRED:
             return self._analyze_texture_and_movement()
         
         return False
+    
+    def _detect_blink(self):
+        """Detecta piscadas baseado no Eye Aspect Ratio"""
+        try:
+            if len(self.eye_aspect_ratios) < 3:
+                return
+            
+            # Verificar se há uma queda significativa no EAR (piscada)
+            current_ear = self.eye_aspect_ratios[-1]
+            previous_ear = self.eye_aspect_ratios[-2]
+            
+            # Se EAR caiu abaixo do threshold, considerar como piscada
+            if current_ear < self.blink_threshold and previous_ear >= self.blink_threshold:
+                self.blink_count += 1
+                self.blink_detected = True
+                print(f"Piscada detectada! Total: {self.blink_count}")
+                
+        except Exception as e:
+            print(f"Erro na detecção de piscada: {e}")
     
     def _normalize_bbox(self, bbox: np.ndarray) -> np.ndarray:
         """Normaliza bbox"""
@@ -134,15 +174,21 @@ class AdvancedLivenessDetector:
         return np.array([center_x, center_y, width, height])
     
     def _analyze_texture_and_movement(self) -> bool:
-        """Analisa textura e movimento para liveness"""
+        """Analisa textura, movimento e piscadas para liveness"""
         # Análise de movimento
         movement_passed = self._check_movement()
         
         # Análise de textura (variação indica pessoa real)
         texture_passed = self._check_texture_variation()
         
-        # Ambos devem passar para considerar liveness
-        return bool(movement_passed and texture_passed)
+        # Análise de piscadas (se habilitada)
+        blink_passed = True
+        if BLINK_DETECTION_ENABLED:
+            blink_passed = self._check_blink_detection()
+        
+        # Pelo menos movimento e textura devem passar
+        # Piscada é opcional mas melhora a precisão
+        return bool(movement_passed and texture_passed and blink_passed)
     
     def _check_movement(self) -> bool:
         """Verifica movimento entre frames"""
@@ -169,15 +215,79 @@ class AdvancedLivenessDetector:
         # Calcular variação de textura
         texture_variance = np.var(recent_textures)
         
-        # Threshold para variação mínima (fotos têm textura mais estável)
-        min_texture_variance = 50.0
+        # Usar threshold configurável
+        return bool(texture_variance >= TEXTURE_VARIANCE_THRESHOLD)
+    
+    def _check_blink_detection(self) -> bool:
+        """Verifica se houve pelo menos uma piscada detectada"""
+        # Se não temos dados suficientes, considerar como passou
+        if len(self.eye_aspect_ratios) < LIVENESS_FRAMES_REQUIRED:
+            return True
         
-        return bool(texture_variance >= min_texture_variance)
+        # Se já detectamos uma piscada, sempre passar
+        if self.blink_count > 0:
+            return True
+        
+        # Se temos dados suficientes mas não detectamos piscada, falhar
+        return False
+    
+    def _calculate_eye_aspect_ratio(self, landmarks: np.ndarray) -> float:
+        """Calcula Eye Aspect Ratio para detecção de piscadas"""
+        try:
+            if landmarks is None or len(landmarks) < 6:
+                return 0.0
+            
+            # Pontos dos olhos (formato InsightFace)
+            # Olho esquerdo: pontos 0, 1, 2, 3, 4, 5
+            # Olho direito: pontos 6, 7, 8, 9, 10, 11
+            
+            # Olho esquerdo
+            left_eye_points = landmarks[0:6]
+            left_ear = self._calculate_ear(left_eye_points)
+            
+            # Olho direito
+            right_eye_points = landmarks[6:12]
+            right_ear = self._calculate_ear(right_eye_points)
+            
+            # EAR médio
+            ear = (left_ear + right_ear) / 2.0
+            
+            return ear
+            
+        except Exception as e:
+            print(f"Erro no cálculo de EAR: {e}")
+            return 0.0
+    
+    def _calculate_ear(self, eye_points: np.ndarray) -> float:
+        """Calcula Eye Aspect Ratio para um olho"""
+        try:
+            if len(eye_points) < 6:
+                return 0.0
+            
+            # Calcular distâncias verticais
+            A = np.linalg.norm(eye_points[1] - eye_points[5])
+            B = np.linalg.norm(eye_points[2] - eye_points[4])
+            
+            # Calcular distância horizontal
+            C = np.linalg.norm(eye_points[0] - eye_points[3])
+            
+            # EAR = (A + B) / (2 * C)
+            ear = (A + B) / (2.0 * C)
+            
+            return ear
+            
+        except Exception as e:
+            print(f"Erro no cálculo de EAR individual: {e}")
+            return 0.0
     
     def reset(self):
         """Reseta histórico"""
         self.frame_history = []
         self.texture_history = []
+        self.eye_aspect_ratios = []
+        self.blink_count = 0
+        self.blink_detected = False
+        self.consecutive_frames = 0
     
     def get_stats(self) -> dict:
         """Retorna estatísticas detalhadas"""
@@ -185,6 +295,7 @@ class AdvancedLivenessDetector:
             return {
                 "movement": 0,
                 "texture_variance": 0,
+                "blink_count": self.blink_count,
                 "frames_analyzed": len(self.texture_history),
                 "liveness_passed": False
             }
@@ -201,11 +312,24 @@ class AdvancedLivenessDetector:
         # Estatísticas de textura
         texture_variance = np.var(self.texture_history) if len(self.texture_history) > 1 else 0
         
+        # Verificar se liveness passou
+        movement_passed = avg_movement >= MOVEMENT_THRESHOLD
+        texture_passed = texture_variance >= TEXTURE_VARIANCE_THRESHOLD
+        blink_passed = True
+        if BLINK_DETECTION_ENABLED:
+            blink_passed = self.blink_count > 0 or len(self.eye_aspect_ratios) < LIVENESS_FRAMES_REQUIRED
+        
+        liveness_passed = movement_passed and texture_passed and blink_passed
+        
         return {
             "movement": avg_movement,
             "texture_variance": texture_variance,
+            "blink_count": self.blink_count,
             "frames_analyzed": len(self.texture_history),
-            "liveness_passed": avg_movement >= MOVEMENT_THRESHOLD and texture_variance >= 50.0
+            "liveness_passed": liveness_passed,
+            "movement_passed": movement_passed,
+            "texture_passed": texture_passed,
+            "blink_passed": blink_passed
         }
 
 # Instâncias globais dos detectores
