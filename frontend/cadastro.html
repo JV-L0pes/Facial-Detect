@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro - Sistema Reconhecimento Facial</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👤</text></svg>">
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-user-check"></i>
+                    <h1>Sistema Reconhecimento Facial</h1>
+                </div>
+                <nav class="nav">
+                    <a href="/" class="nav-link">
+                        <i class="fas fa-home"></i> Início
+                    </a>
+                    <a href="/cadastro" class="nav-link active">
+                        <i class="fas fa-user-plus"></i> Cadastro
+                    </a>
+                    <a href="/validacao" class="nav-link">
+                        <i class="fas fa-camera"></i> Validação
+                    </a>
+                    <a href="/admin" class="nav-link">
+                        <i class="fas fa-cog"></i> Admin
+                    </a>
+                </nav>
+            </div>
+        </header>
+
+        <main class="main">
+            <div class="form-container">
+                <h2><i class="fas fa-user-plus"></i> Cadastrar Novo Usuário</h2>
+                <p>Envie uma foto clara do seu rosto para cadastro no sistema</p>
+                
+                <form id="cadastroForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="name">Nome Completo</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Foto do Rosto</label>
+                        <div class="file-upload" id="fileUpload">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Clique aqui ou arraste uma foto</p>
+                            <p class="file-info">Formatos: JPG, PNG, BMP (máx. 10MB)</p>
+                            <input type="file" id="photo" name="photo" accept="image/*" required>
+                        </div>
+                        <div class="image-preview" id="imagePreview"></div>
+                    </div>
+                    
+                    <button type="submit" class="btn" id="submitBtn">
+                        <i class="fas fa-user-plus"></i> Cadastrar Usuário
+                    </button>
+                </form>
+                
+                <div id="alertContainer"></div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2025 Sistema Reconhecimento Facial. Demo para controle de acesso.</p>
+        </footer>
+    </div>
+
+    <script>
+        const form = document.getElementById('cadastroForm');
+        const fileUpload = document.getElementById('fileUpload');
+        const photoInput = document.getElementById('photo');
+        const imagePreview = document.getElementById('imagePreview');
+        const alertContainer = document.getElementById('alertContainer');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Drag and drop
+        fileUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUpload.classList.add('dragover');
+        });
+
+        fileUpload.addEventListener('dragleave', () => {
+            fileUpload.classList.remove('dragover');
+        });
+
+        fileUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUpload.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                photoInput.files = files;
+                handleFileSelect(files[0]);
+            }
+        });
+
+        // Click to upload
+        fileUpload.addEventListener('click', () => {
+            photoInput.click();
+        });
+
+        photoInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            // Validar arquivo
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/bmp'];
+            
+            if (file.size > maxSize) {
+                showAlert('Arquivo muito grande. Máximo 10MB.', 'error');
+                return;
+            }
+            
+            if (!allowedTypes.includes(file.type)) {
+                showAlert('Formato não suportado. Use JPG, PNG ou BMP.', 'error');
+                return;
+            }
+
+            // Mostrar preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.innerHTML = `
+                    <img src="${e.target.result}" alt="Preview">
+                    <p>${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</p>
+                `;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            
+            // Validar se arquivo foi selecionado
+            if (!photoInput.files[0]) {
+                showAlert('Por favor, selecione uma foto.', 'error');
+                return;
+            }
+
+            // Desabilitar botão e mostrar loading
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading"></span> Processando...';
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert(`Usuário ${data.user_id} cadastrado com sucesso!`, 'success');
+                    form.reset();
+                    imagePreview.innerHTML = '';
+                } else {
+                    showAlert(data.message || 'Erro no cadastro', 'error');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                showAlert('Erro de conexão. Tente novamente.', 'error');
+            } finally {
+                // Reabilitar botão
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-user-plus"></i> Cadastrar Usuário';
+            }
+        });
+
+        function showAlert(message, type) {
+            alertContainer.innerHTML = `
+                <div class="alert ${type}">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                    ${message}
+                </div>
+            `;
+            
+            // Auto-remover após 5 segundos
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
