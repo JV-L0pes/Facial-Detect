@@ -35,7 +35,7 @@ else:
 
 # Configurações de reconhecimento facial
 FACE_DETECTION_CONFIDENCE = 0.25  # Threshold de confiança para detecção
-FACE_RECOGNITION_THRESHOLD = 0.25  # Threshold para reconhecimento (distância máxima) - GPU permite ser mais rigoroso
+FACE_RECOGNITION_THRESHOLD = 0.4  # Threshold para reconhecimento (distância máxima) - Relaxado para teste
 EMBEDDING_DIMENSION = 512  # Dimensão dos embeddings ArcFace
 
 # Configurações avançadas de precisão

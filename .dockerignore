@@ -1,3 +1,5 @@
+# Arquivos e diretórios a serem ignorados no Docker build
+
 # Ambientes virtuais
 venv/
 env/
@@ -44,7 +46,7 @@ logs/
 Thumbs.db
 
 # IDE
-.vscode/settings.json
+.vscode/
 .idea/
 *.swp
 *.swo
@@ -63,9 +65,22 @@ tmp/
 test_*.py
 *_test.py
 
-# Docker volumes e dados
-data/
-logs/
+# Git
+.git/
+.gitignore
 
-.vscode
-scripts
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Scripts de desenvolvimento
+start_gpu.bat
+start.bat
+start_docker.sh
+start_docker.bat
+
+# README e documentação
+README.md
+LICENSE
+*.md

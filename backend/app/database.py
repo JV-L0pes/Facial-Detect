@@ -4,7 +4,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from config import DATABASE_URL
-from backend.app.models import Base, create_tables
+from app.models import Base, create_tables
 
 # Criar engine do banco de dados
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})

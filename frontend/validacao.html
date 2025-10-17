@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Validação - Sistema Reconhecimento Facial</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👤</text></svg>">
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/css/styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -134,7 +134,7 @@
                 setConfidence(0);
                 setUser('Desconhecido');
 
-                validationInterval = setInterval(validateFrame, 1500);
+                validationInterval = setInterval(validateFrame, 3000);
             } catch (error) {
                 console.error('Erro ao acessar câmera:', error);
                 setStatus('error', 'Erro ao acessar câmera');
@@ -241,7 +241,7 @@
 
             if (access_granted) {
                 setStatus('success', 'Acesso Liberado');
-                setTimeout(() => stopWebcam(), 2500);
+                // Detecção continua até o usuário clicar em "Parar"
             } else {
                 if (!liveness_passed) setStatus('warning', 'Liveness em análise');
                 else setStatus('error', 'Usuário não reconhecido');
@@ -250,9 +250,42 @@
 
         window.addEventListener('resize', syncCanvas);
         webcamVideo.addEventListener('loadedmetadata', syncCanvas);
+        webcamVideo.addEventListener('resize', syncCanvas);
         function syncCanvas() {
-            overlayCanvas.width = webcamVideo.clientWidth;
-            overlayCanvas.height = webcamVideo.clientHeight;
+            // Obter dimensões reais do vídeo
+            const videoWidth = webcamVideo.videoWidth;
+            const videoHeight = webcamVideo.videoHeight;
+            
+            if (!videoWidth || !videoHeight) return;
+            
+            // Obter dimensões do container
+            const containerWidth = webcamVideo.parentElement.clientWidth;
+            const containerHeight = webcamVideo.parentElement.clientHeight;
+            
+            // Calcular escala para manter proporção (como object-fit: contain)
+            const scaleX = containerWidth / videoWidth;
+            const scaleY = containerHeight / videoHeight;
+            const scale = Math.min(scaleX, scaleY);
+            
+            // Calcular dimensões finais do vídeo
+            const finalWidth = videoWidth * scale;
+            const finalHeight = videoHeight * scale;
+            
+            // Calcular offset para centralizar
+            const offsetX = (containerWidth - finalWidth) / 2;
+            const offsetY = (containerHeight - finalHeight) / 2;
+            
+            // Configurar canvas para corresponder exatamente ao vídeo
+            overlayCanvas.width = videoWidth;
+            overlayCanvas.height = videoHeight;
+            
+            // Posicionar e dimensionar o canvas
+            overlayCanvas.style.position = 'absolute';
+            overlayCanvas.style.left = offsetX + 'px';
+            overlayCanvas.style.top = offsetY + 'px';
+            overlayCanvas.style.width = finalWidth + 'px';
+            overlayCanvas.style.height = finalHeight + 'px';
+            overlayCanvas.style.transform = 'scale(1)';
         }
 
         window.addEventListener('beforeunload', () => { stopWebcam(); });
@@ -272,9 +305,9 @@
         .badge { background: #e2e8f0; color: #334155; border-radius: 999px; padding: .25rem .75rem; font-weight: 700; font-size: .8rem; }
         .badge-live { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
 
-        .video-shell { position: relative; width: 100%; height: 500px; background: #0b1220; display: grid; place-items: center; }
-        .webcam-video { width: 100%; height: 100%; object-fit: contain; border-radius: 0; }
-        .overlay-canvas { position: absolute; inset: 0; pointer-events: none; }
+        .video-shell { position: relative; width: 100%; height: 500px; background: #0b1220; display: flex; align-items: center; justify-content: center; }
+        .webcam-video { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 0; }
+        .overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 
         .video-controls { display: flex; gap: .75rem; padding: 1rem; border-top: 1px solid #e2e8f0; }
 

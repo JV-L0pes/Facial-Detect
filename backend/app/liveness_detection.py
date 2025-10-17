@@ -105,11 +105,14 @@ class AdvancedLivenessDetector:
     
     def add_frame(self, face_image: np.ndarray, face_bbox: np.ndarray, landmarks: np.ndarray = None) -> bool:
         """Adiciona frame com análise de textura e detecção de piscadas"""
+        print(f"DEBUG LIVENESS: Adicionando frame - Histórico atual: {len(self.frame_history)}")
+        
         # Extrair região da face
         x1, y1, x2, y2 = face_bbox.astype(int)
         face_roi = face_image[y1:y2, x1:x2]
         
         if face_roi.size == 0:
+            print("DEBUG LIVENESS: ROI vazio")
             return False
         
         # Redimensionar para análise consistente
@@ -121,6 +124,8 @@ class AdvancedLivenessDetector:
         
         self.texture_history.append(texture_score)
         self.frame_history.append(self._normalize_bbox(face_bbox))
+        
+        print(f"DEBUG LIVENESS: Textura score: {texture_score:.2f}")
         
         # Detecção de piscadas (se landmarks disponíveis)
         if BLINK_DETECTION_ENABLED and landmarks is not None:
@@ -141,8 +146,12 @@ class AdvancedLivenessDetector:
         
         # Verificar liveness
         if len(self.texture_history) >= LIVENESS_FRAMES_REQUIRED:
-            return self._analyze_texture_and_movement()
+            print(f"DEBUG LIVENESS: Analisando liveness com {len(self.texture_history)} frames")
+            result = self._analyze_texture_and_movement()
+            print(f"DEBUG LIVENESS: Resultado da análise: {result}")
+            return result
         
+        print(f"DEBUG LIVENESS: Frames insuficientes ({len(self.texture_history)} < {LIVENESS_FRAMES_REQUIRED})")
         return False
     
     def _detect_blink(self):

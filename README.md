@@ -37,12 +37,70 @@ Sistema completo de reconhecimento facial com detecção de liveness para contro
 
 ## 📋 Pré-requisitos
 
-- Python 3.8+
-- CUDA (opcional, para GPU)
+- Python 3.8+ (para ambiente venv) OU Miniconda/Anaconda (para ambiente conda)
+- CUDA Toolkit (recomendado para GPU)
 - Webcam para validação
 - Navegador moderno com suporte a WebRTC
 
-## 🔧 Instalação
+## 🐳 Instalação com Docker (Recomendado)
+
+A forma mais fácil de executar o sistema é usando Docker. Isso garante que todas as dependências sejam instaladas corretamente.
+
+### Pré-requisitos
+- Docker Desktop instalado
+- Docker Compose instalado
+- NVIDIA Docker (opcional, para GPU)
+
+### Instalação Rápida
+
+1. **Clone o repositório**
+```bash
+git clone <url-do-repositorio>
+cd Facial_Detect
+```
+
+2. **Execute o script de inicialização**
+
+**Linux/Mac:**
+```bash
+chmod +x start_docker.sh
+./start_docker.sh
+```
+
+**Windows:**
+```cmd
+start_docker.bat
+```
+
+3. **Acesse o sistema**
+- Frontend: http://localhost
+- Backend API: http://localhost:8000
+- Documentação: http://localhost:8000/docs
+
+### Comandos Docker Úteis
+
+```bash
+# Ver logs em tempo real
+docker-compose logs -f
+
+# Parar o sistema
+docker-compose down
+
+# Reiniciar serviços
+docker-compose restart
+
+# Ver status dos containers
+docker-compose ps
+
+# Reconstruir containers
+docker-compose build --no-cache
+```
+
+## 🔧 Instalação Manual
+
+### Opção 1: Ambiente Conda (Recomendado - 100% GPU)
+
+Esta opção garante suporte completo à GPU com FAISS GPU e ONNX Runtime GPU.
 
 1. **Clone o repositório**
 ```bash
@@ -50,17 +108,73 @@ git clone <repository-url>
 cd Facial_Detect
 ```
 
-2. **Instale as dependências**
+2. **Instale Miniconda** (se não tiver)
+- Baixe de: https://docs.conda.io/en/latest/miniconda.html
+- Execute o instalador
+
+3. **Crie e ative o ambiente conda**
+```bash
+# Criar ambiente com Python 3.11 (compatível com FAISS GPU)
+conda create -n facial-detect python=3.11 -y
+
+# Ativar ambiente
+conda activate facial-detect
+
+# Instalar FAISS GPU
+conda install -c conda-forge faiss-gpu -y
+
+# Instalar outras dependências
+pip install -r requirements.txt
+```
+
+4. **Execute o sistema**
+```bash
+# Opção 1: Usar script automático (recomendado)
+start_gpu.bat
+
+# Opção 2: Manual
+conda activate faiss-gpu
+python backend/app/main.py
+```
+
+### Opção 2: Ambiente Virtual Python (CPU/GPU Limitado)
+
+Esta opção usa FAISS CPU e pode ter limitações de GPU.
+
+1. **Clone o repositório**
+```bash
+git clone <repository-url>
+cd Facial_Detect
+```
+
+2. **Crie e ative ambiente virtual**
+```bash
+# Windows
+python -m venv venv
+venv\Scripts\activate
+
+# Linux/Mac
+python -m venv venv
+source venv/bin/activate
+```
+
+3. **Instale dependências**
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **Execute o sistema**
+4. **Execute o sistema**
 ```bash
+# Windows
+venv\Scripts\activate
+python backend/app/main.py
+
+# Linux/Mac
+source venv/bin/activate
 python backend/app/main.py
 ```
 
-4. **Acesse a aplicação**
+### Acesse a aplicação
 ```
 http://localhost:8000
 ```
@@ -145,7 +259,6 @@ Facial_Detect/
 │   ├── database.db             # SQLite
 │   ├── faiss_index/            # Índices FAISS
 │   └── logs/                   # Logs criptografados
-├── models/                     # Modelos pré-treinados
 ├── config.py                   # Configurações
 └── requirements.txt            # Dependências
 ```
@@ -172,11 +285,36 @@ Facial_Detect/
 
 ### Problemas Comuns
 
-**Erro de CUDA**
+**Erro de CUDA/GPU**
 ```bash
 # Verificar se CUDA está disponível
 python -c "import torch; print(torch.cuda.is_available())"
+
+# Verificar ONNX Runtime GPU
+python -c "import onnxruntime as ort; print(ort.get_available_providers())"
+
+# Verificar FAISS GPU
+python -c "import faiss; print(hasattr(faiss, 'StandardGpuResources'))"
 ```
+
+**Erro "cublasLt64_12.dll missing"**
+- Instale CUDA Toolkit do site oficial da NVIDIA
+- Adicione o diretório bin do CUDA ao PATH do sistema
+- Use o ambiente conda (Opção 1) que instala CUDA automaticamente
+
+**Erro de NumPy incompatível**
+```bash
+# No ambiente conda
+conda install "numpy<2" -y
+
+# No ambiente venv
+pip install "numpy<2"
+```
+
+**FAISS GPU não funciona**
+- Use o ambiente conda (Opção 1) que instala FAISS GPU corretamente
+- Verifique se tem CUDA Toolkit instalado
+- Para Windows, o ambiente conda é mais confiável
 
 **Câmera não funciona**
 - Verificar permissões do navegador
@@ -187,6 +325,35 @@ python -c "import torch; print(torch.cuda.is_available())"
 - Ajustar thresholds em config.py
 - Usar fotos de melhor qualidade
 - Verificar iluminação
+
+### Verificação do Ambiente
+
+**Para ambiente Conda:**
+```bash
+conda activate facial-detect
+python -c "
+import faiss
+import onnxruntime as ort
+import torch
+print('FAISS GPU:', hasattr(faiss, 'StandardGpuResources'))
+print('ONNX GPU:', 'CUDAExecutionProvider' in ort.get_available_providers())
+print('PyTorch CUDA:', torch.cuda.is_available())
+"
+```
+
+**Para ambiente venv:**
+```bash
+# Windows
+venv\Scripts\activate
+python -c "
+import faiss
+import onnxruntime as ort
+import torch
+print('FAISS CPU:', not hasattr(faiss, 'StandardGpuResources'))
+print('ONNX GPU:', 'CUDAExecutionProvider' in ort.get_available_providers())
+print('PyTorch CUDA:', torch.cuda.is_available())
+"
+```
 
 ### Logs
 ```bash

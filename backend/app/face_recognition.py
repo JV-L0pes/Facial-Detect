@@ -14,7 +14,7 @@ from config import (
     FACE_DETECTION_CONFIDENCE_HIGH, FACE_RECOGNITION_THRESHOLD_STRICT,
     FACE_RECOGNITION_THRESHOLD_RELAXED, MIN_FACE_SIZE, MAX_FACE_SIZE
 )
-from backend.app.encryption import encryption_manager
+from app.encryption import encryption_manager
 
 class FaceRecognitionSystem:
     def __init__(self):
@@ -38,6 +38,22 @@ class FaceRecognitionSystem:
             if not torch.cuda.is_available():
                 raise RuntimeError("CUDA não está disponível no PyTorch!")
             
+            # Verificar se ONNX Runtime GPU está disponível (OPCIONAL)
+            try:
+                import onnxruntime as ort
+                available_providers = ort.get_available_providers()
+                if 'CUDAExecutionProvider' not in available_providers:
+                    print("AVISO: CUDAExecutionProvider não está disponível no ONNX Runtime")
+                    print(f"Providers disponíveis: {available_providers}")
+                    print("Continuando sem ONNX Runtime GPU...")
+                else:
+                    print("✅ ONNX Runtime GPU disponível")
+            except ImportError:
+                print("AVISO: onnxruntime-gpu não instalado - continuando sem ele")
+            except Exception as e:
+                print(f"AVISO: Erro ao verificar ONNX Runtime: {e}")
+                print("Continuando sem ONNX Runtime GPU...")
+            
             # Configurar InsightFace com APENAS CUDA
             self.face_app = FaceAnalysis(
                 name='buffalo_l',  # Modelo mais preciso
@@ -45,7 +61,8 @@ class FaceRecognitionSystem:
             )
             
             # Preparar com configurações GPU otimizadas
-            self.face_app.prepare(ctx_id=0, det_size=(1920, 1920))
+            # Usar tamanho menor para melhor performance e compatibilidade
+            self.face_app.prepare(ctx_id=0, det_size=(640, 640))
             
             # Verificar se realmente está usando GPU
             providers = self.face_app.models['detection'].session.get_providers()
@@ -113,17 +130,22 @@ class FaceRecognitionSystem:
     def detect_faces(self, image: np.ndarray, high_precision: bool = False) -> List[dict]:
         """Detecta faces na imagem com opção de alta precisão"""
         try:
+            print(f"DEBUG DETECT: Processando imagem - Shape: {image.shape}")
             faces = self.face_app.get(image)
+            print(f"DEBUG DETECT: Faces detectadas: {len(faces)}")
             
             # Escolher threshold baseado na precisão desejada
             confidence_threshold = FACE_DETECTION_CONFIDENCE_HIGH if high_precision else FACE_DETECTION_CONFIDENCE
             
             # Filtrar faces por confiança e qualidade
             valid_faces = []
-            for face in faces:
+            
+            for i, face in enumerate(faces):
                 if face.det_score >= confidence_threshold:
                     # Verificar qualidade da face detectada
-                    if self._is_face_quality_good(face, image):
+                    quality_ok = self._is_face_quality_good(face, image)
+                    
+                    if quality_ok:
                         valid_faces.append({
                             'bbox': face.bbox.astype(int),
                             'embedding': face.embedding,
@@ -131,6 +153,8 @@ class FaceRecognitionSystem:
                             'landmarks': face.kps if hasattr(face, 'kps') else None,
                             'quality_score': self._calculate_face_quality(face, image)
                         })
+            
+            print(f"DEBUG DETECT: Faces válidas finais: {len(valid_faces)}")
             
             # Ordenar por qualidade combinada (det_score + quality_score)
             valid_faces.sort(key=lambda x: x['det_score'] * x['quality_score'], reverse=True)
@@ -225,20 +249,30 @@ class FaceRecognitionSystem:
     def add_user_embedding(self, embedding: np.ndarray, user_id: int) -> int:
         """Adiciona embedding de usuário ao índice FAISS"""
         try:
+            print(f"DEBUG FAISS: Adicionando embedding para user_id: {user_id}")
+            print(f"DEBUG FAISS: Embedding shape: {embedding.shape}")
+            
             # Normalizar embedding para similaridade de cosseno
             embedding_normalized = embedding / np.linalg.norm(embedding)
+            print(f"DEBUG FAISS: Embedding normalizado")
             
             # Adicionar ao índice FAISS
             faiss_id = self.next_faiss_id
+            print(f"DEBUG FAISS: Usando faiss_id: {faiss_id}")
+            
             self.faiss_index.add(embedding_normalized.reshape(1, -1))
+            print(f"DEBUG FAISS: Embedding adicionado ao índice")
             
             # Mapear ID do FAISS para ID do usuário
             self.id_to_user[faiss_id] = user_id
+            print(f"DEBUG FAISS: Mapeamento criado: {faiss_id} -> {user_id}")
             
             self.next_faiss_id += 1
             
             # Salvar índice atualizado
+            print("DEBUG FAISS: Salvando índice...")
             self.save_faiss_index()
+            print("DEBUG FAISS: Índice salvo com sucesso")
             
             return faiss_id
             
