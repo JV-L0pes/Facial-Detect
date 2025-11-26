@@ -4,7 +4,7 @@ set -e
 # Verificar se conda está instalado
 if [ -f "/opt/miniconda/bin/activate" ]; then
     echo "📦 Ativando ambiente conda..."
-    source /opt/miniconda/bin/activate faiss-gpu
+    source /opt/miniconda/bin/activate facial-detect
 else
     echo "⚠️  Conda não encontrado em /opt/miniconda/bin/activate"
     echo "   Tentando usar Python do sistema..."

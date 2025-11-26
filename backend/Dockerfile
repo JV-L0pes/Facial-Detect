@@ -1,5 +1,5 @@
-# Dockerfile para o backend Python com GPU - OTIMIZADO
-FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+# Dockerfile para o backend Python - Suporta CPU e GPU
+FROM python:3.11-slim
 
 # Evitar prompts interativos
 ENV DEBIAN_FRONTEND=noninteractive
@@ -33,13 +33,14 @@ RUN conda config --system --remove-key channels || true && \
     conda config --system --set channel_priority strict
 
 # Criar ambiente conda (cache layer)
-RUN conda create -n faiss-gpu python=3.11 -y
+RUN conda create -n facial-detect python=3.11 -y
 
-# Instalar dependências pesadas (cache layer - só muda se requirements.txt mudar)
-RUN /bin/bash -lc "source /opt/miniconda/bin/activate faiss-gpu && \
-    conda install -c conda-forge faiss-gpu numpy=1.26.4 -y && \
+# Instalar dependências pesadas (cache layer)
+# Usar faiss-cpu por padrão (funciona em CPU e GPU)
+RUN /bin/bash -lc "source /opt/miniconda/bin/activate facial-detect && \
+    conda install -c conda-forge faiss-cpu numpy=1.26.4 -y && \
     pip install --upgrade pip && \
-    pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121"
+    pip install --no-cache-dir torch torchvision"
 
 # Definir diretório de trabalho
 WORKDIR /app
@@ -48,9 +49,9 @@ WORKDIR /app
 COPY backend/requirements.txt ./requirements.txt
 
 # Instalar dependências Python restantes (cache layer)
-# Nota: faiss-gpu e torch já estão instalados via conda/pip acima
+# Nota: faiss-cpu e torch já estão instalados via conda/pip acima
 # Filtrar faiss-cpu e torch do requirements.txt para evitar conflitos
-RUN /bin/bash -lc "source /opt/miniconda/bin/activate faiss-gpu && \
+RUN /bin/bash -lc "source /opt/miniconda/bin/activate facial-detect && \
     grep -v '^faiss-cpu' requirements.txt | grep -v '^torch' | grep -v '^torchvision' > requirements_docker.txt && \
     pip install -r requirements_docker.txt"
 
@@ -63,7 +64,7 @@ RUN mkdir -p data/faiss_index data/logs
 
 # Definir variáveis de ambiente
 ENV PYTHONPATH=/app
-ENV CUDA_VISIBLE_DEVICES=0
+ENV DEVICE=cpu
 
 # Expor porta
 EXPOSE 8000

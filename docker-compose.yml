@@ -6,7 +6,8 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: facial-detect-backend
-    gpus: all
+    # GPU opcional - descomente as linhas abaixo se tiver GPU NVIDIA
+    # gpus: all
     ports:
       - "8000:8000"
     volumes:
@@ -17,15 +18,16 @@ services:
     env_file:
       - .env.docker
     environment:
-      - CUDA_VISIBLE_DEVICES=0
+      - DEVICE=cpu
       - PYTHONPATH=/app
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    # Descomente abaixo se tiver GPU NVIDIA
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/stats"]
