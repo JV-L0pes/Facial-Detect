@@ -37,7 +37,9 @@ else:
 
 # Configurações de reconhecimento facial
 FACE_DETECTION_CONFIDENCE = 0.25  # Threshold de confiança para detecção
-FACE_RECOGNITION_THRESHOLD = 0.4  # Threshold para reconhecimento (distância máxima) - Relaxado para teste
+FACE_RECOGNITION_THRESHOLD = (
+    0.4  # Threshold para reconhecimento (distância máxima) - Relaxado para teste
+)
 EMBEDDING_DIMENSION = 512  # Dimensão dos embeddings ArcFace
 
 # Configurações avançadas de precisão
@@ -48,7 +50,9 @@ MIN_FACE_SIZE = 80  # Tamanho mínimo da face em pixels
 MAX_FACE_SIZE = 2000  # Tamanho máximo da face em pixels
 
 # Configurações de segurança
-ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "facial_detect_demo_key_2024")  # Em produção, usar variável de ambiente
+ENCRYPTION_KEY = os.getenv(
+    "ENCRYPTION_KEY", "facial_detect_demo_key_2024"
+)  # Em produção, usar variável de ambiente
 AES_KEY_LENGTH = 32  # 256 bits
 
 # Configurações do banco de dados

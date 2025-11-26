@@ -15,15 +15,15 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { Users, RefreshCw, Download, Eye, Edit, Trash2 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { formatDate } from '@/lib/utils/validators';
+import type { User } from '@/types';
 
 export function UsersTable() {
   const { data: users, isLoading, error, refetch } = useUsers();
   const deleteUser = useDeleteUser();
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredUsers = users?.filter(user =>
+  const filteredUsers = users?.filter((user: User) =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
@@ -39,14 +39,14 @@ export function UsersTable() {
     
     const csvContent = [
       ['ID', 'Nome', 'Email', 'Passagens', 'Data Cadastro'],
-      ...users.map(user => [
+      ...users.map((user: User) => [
         user.id,
         user.name,
         user.email,
         user.passage_count,
         formatDate(user.created_at)
       ])
-    ].map(row => row.join(',')).join('\n');
+    ].map((row: (string | number)[]) => row.join(',')).join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -147,12 +147,13 @@ export function UsersTable() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredUsers.map((user, index) => (
-                    <motion.tr
+                  filteredUsers.map((user: User, index: number) => (
+                    <TableRow
                       key={user.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
+                      className="animate-in fade-in slide-in-from-bottom-2"
+                      style={{
+                        animationDelay: `${index * 50}ms`,
+                      }}
                     >
                       <TableCell className="font-medium">{user.id}</TableCell>
                       <TableCell>{user.name}</TableCell>
@@ -197,7 +198,7 @@ export function UsersTable() {
                           </Button>
                         </div>
                       </TableCell>
-                    </motion.tr>
+                    </TableRow>
                   ))
                 )}
               </TableBody>
