@@ -3,7 +3,9 @@ import numpy as np
 from typing import List, Tuple
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# Adicionar o diretório raiz do projeto ao path
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
 from config import (
     LIVENESS_FRAMES_REQUIRED, MOVEMENT_THRESHOLD, 
     TEXTURE_VARIANCE_THRESHOLD, BLINK_DETECTION_ENABLED, 

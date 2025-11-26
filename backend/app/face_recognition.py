@@ -7,7 +7,9 @@ import os
 import pickle
 from typing import List, Tuple, Optional
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# Adicionar o diretório raiz do projeto ao path
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
 from config import (
     DEVICE, FACE_DETECTION_CONFIDENCE, FACE_RECOGNITION_THRESHOLD, 
     EMBEDDING_DIMENSION, FAISS_INDEX_DIR, MODELS_DIR,

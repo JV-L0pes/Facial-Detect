@@ -16,6 +16,20 @@ def init_database():
     """Inicializa o banco de dados criando todas as tabelas"""
     try:
         create_tables()
+        
+        # Verificar se a coluna passage_count existe, se não, adicionar
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            # Verificar se a coluna existe
+            result = conn.execute(text("PRAGMA table_info(users)"))
+            columns = [row[1] for row in result.fetchall()]
+            
+            if 'passage_count' not in columns:
+                print("🔄 Adicionando coluna passage_count à tabela users...")
+                conn.execute(text("ALTER TABLE users ADD COLUMN passage_count INTEGER DEFAULT 0"))
+                conn.commit()
+                print("✅ Coluna passage_count adicionada com sucesso!")
+        
         print("Banco de dados inicializado com sucesso!")
         return True
     except Exception as e:

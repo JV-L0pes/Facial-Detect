@@ -20,6 +20,7 @@ class User(Base):
     email = Column(String(100), unique=True, index=True)
     embedding_hash = Column(Text, nullable=False)  # Embedding criptografado
     faiss_id = Column(Integer, nullable=False)  # ID no índice FAISS
+    passage_count = Column(Integer, default=0)  # Contador de passagens
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
 

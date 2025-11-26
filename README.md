@@ -1,6 +1,6 @@
 # Sistema de Reconhecimento Facial para Controle de Acesso
 
-Sistema completo de reconhecimento facial com detecção de liveness para controle de acesso, desenvolvido em Python com FastAPI e interface web moderna.
+Sistema completo de reconhecimento facial com detecção de liveness para controle de acesso, desenvolvido em Python com FastAPI e interface web moderna com Next.js.
 
 ## 🚀 Características
 
@@ -9,7 +9,7 @@ Sistema completo de reconhecimento facial com detecção de liveness para contro
 - **Busca Vetorial Rápida**: Índice FAISS para busca eficiente de similaridade
 - **Anti-Spoofing**: Detecção de liveness com análise de movimento e textura
 - **Segurança**: Criptografia AES-256 para embeddings sensíveis
-- **Interface Moderna**: Frontend responsivo com design elegante
+- **Interface Moderna**: Frontend Next.js com TypeScript e Tailwind CSS
 - **Compliance LGPD**: Não armazena fotos em claro, apenas embeddings criptografados
 - **GPU Acelerado**: Suporte automático para CUDA (RTX/GTX)
 
@@ -24,11 +24,17 @@ Sistema completo de reconhecimento facial com detecção de liveness para contro
 - **OpenCV**: Processamento de imagens
 - **PyTorch**: Deep learning com suporte GPU
 
-### Frontend
-- **HTML5/CSS3**: Interface moderna e responsiva
-- **JavaScript**: Interatividade e WebRTC
-- **Font Awesome**: Ícones elegantes
-- **WebRTC**: Captura de webcam em tempo real
+### Frontend (Next.js 15)
+- **Next.js 15**: Framework React com App Router
+- **TypeScript**: Tipagem estática para maior segurança
+- **Tailwind CSS**: Framework CSS utilitário
+- **shadcn/ui**: Componentes UI modernos e acessíveis
+- **TanStack Query**: Gerenciamento de estado servidor
+- **Zustand**: Gerenciamento de estado cliente
+- **Framer Motion**: Animações fluidas
+- **React Hook Form + Zod**: Formulários com validação
+- **Lucide React**: Ícones modernos
+- **Sonner**: Notificações toast elegantes
 
 ### Segurança
 - **AES-256**: Criptografia de embeddings
@@ -37,10 +43,12 @@ Sistema completo de reconhecimento facial com detecção de liveness para contro
 
 ## 📋 Pré-requisitos
 
-- Python 3.8+ (para ambiente venv) OU Miniconda/Anaconda (para ambiente conda)
-- CUDA Toolkit (recomendado para GPU)
-- Webcam para validação
-- Navegador moderno com suporte a WebRTC
+- **Docker Desktop** (recomendado) OU ambiente de desenvolvimento local
+- **Node.js 18+** (para desenvolvimento frontend)
+- **Python 3.8+** (para ambiente venv) OU Miniconda/Anaconda (para ambiente conda)
+- **CUDA Toolkit** (recomendado para GPU)
+- **Webcam** para validação
+- **Navegador moderno** com suporte a WebRTC
 
 ## 🐳 Instalação com Docker (Recomendado)
 
@@ -73,7 +81,8 @@ start_docker.bat
 ```
 
 3. **Acesse o sistema**
-- Frontend: http://localhost
+- Frontend: http://localhost (via Nginx)
+- Frontend direto: http://localhost:3000 (Next.js)
 - Backend API: http://localhost:8000
 - Documentação: http://localhost:8000/docs
 
@@ -96,88 +105,141 @@ docker-compose ps
 docker-compose build --no-cache
 ```
 
-## 🔧 Instalação Manual
+## 🔧 Instalação Manual (Sem Docker)
 
-### Opção 1: Ambiente Conda (Recomendado - 100% GPU)
+### 📋 Pré-requisitos
 
-Esta opção garante suporte completo à GPU com FAISS GPU e ONNX Runtime GPU.
+- **Python 3.8+** instalado
+- **Node.js 18+** instalado
+- **CUDA Toolkit** (opcional, apenas se quiser usar GPU)
 
-1. **Clone o repositório**
-```bash
-git clone <repository-url>
-cd Facial_Detect
-```
+### 🚀 Guia Rápido - Rodar Localmente
 
-2. **Instale Miniconda** (se não tiver)
-- Baixe de: https://docs.conda.io/en/latest/miniconda.html
-- Execute o instalador
+#### Passo 1: Configurar o Backend (Python)
 
-3. **Crie e ative o ambiente conda**
-```bash
-# Criar ambiente com Python 3.11 (compatível com FAISS GPU)
-conda create -n facial-detect python=3.11 -y
+1. **Navegue até a pasta do projeto**
+   ```bash
+   cd Facial_Detect
+   ```
 
-# Ativar ambiente
-conda activate facial-detect
+2. **Crie e ative um ambiente virtual**
+   
+   **Windows (PowerShell):**
+   ```powershell
+   python -m venv venv
+   .\venv\Scripts\Activate.ps1
+   ```
+   
+   **Windows (CMD):**
+   ```cmd
+   python -m venv venv
+   venv\Scripts\activate
+   ```
+   
+   **Linux/Mac:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   ```
 
-# Instalar FAISS GPU
-conda install -c conda-forge faiss-gpu -y
+3. **Instale as dependências Python**
+   ```bash
+   pip install -r requirements.txt
+   ```
+   
+   **Nota:** Se você não tiver GPU ou quiser usar CPU, o sistema detectará automaticamente e usará CPU. Para forçar CPU, você pode definir a variável de ambiente:
+   ```bash
+   # Windows
+   set DEVICE=cpu
+   
+   # Linux/Mac
+   export DEVICE=cpu
+   ```
 
-# Instalar outras dependências
-pip install -r requirements.txt
-```
+4. **Execute o backend**
+   ```bash
+   python backend/app/main.py
+   ```
+   
+   O backend estará disponível em: **http://localhost:8000**
+   - API Docs: http://localhost:8000/docs
 
-4. **Execute o sistema**
-```bash
-# Opção 1: Usar script automático (recomendado)
-start_gpu.bat
+#### Passo 2: Configurar o Frontend (Next.js)
 
-# Opção 2: Manual
-conda activate faiss-gpu
-python backend/app/main.py
-```
+1. **Abra um novo terminal** (mantenha o backend rodando)
 
-### Opção 2: Ambiente Virtual Python (CPU/GPU Limitado)
+2. **Navegue até a pasta frontend**
+   ```bash
+   cd frontend
+   ```
 
-Esta opção usa FAISS CPU e pode ter limitações de GPU.
+3. **Instale as dependências**
+   ```bash
+   npm install
+   ```
 
-1. **Clone o repositório**
-```bash
-git clone <repository-url>
-cd Facial_Detect
-```
+4. **Execute o frontend**
+   ```bash
+   npm run dev
+   ```
+   
+   O frontend estará disponível em: **http://localhost:3000**
 
-2. **Crie e ative ambiente virtual**
-```bash
-# Windows
-python -m venv venv
-venv\Scripts\activate
+#### Passo 3: Acessar a Aplicação
 
-# Linux/Mac
-python -m venv venv
-source venv/bin/activate
-```
+- **Frontend:** http://localhost:3000
+- **Backend API:** http://localhost:8000
+- **Documentação API:** http://localhost:8000/docs
 
-3. **Instale dependências**
-```bash
-pip install -r requirements.txt
-```
+### 🔧 Opções Avançadas
 
-4. **Execute o sistema**
-```bash
-# Windows
-venv\Scripts\activate
-python backend/app/main.py
+#### Opção A: Ambiente Conda (Recomendado para GPU)
 
-# Linux/Mac
-source venv/bin/activate
-python backend/app/main.py
-```
+Se você tem GPU NVIDIA e quer suporte completo:
 
-### Acesse a aplicação
-```
-http://localhost:8000
-```
+1. **Instale Miniconda** (se não tiver)
+   - Baixe de: https://docs.conda.io/en/latest/miniconda.html
+
+2. **Crie e ative o ambiente conda**
+   ```bash
+   # Criar ambiente com Python 3.11
+   conda create -n facial-detect python=3.11 -y
+   conda activate facial-detect
+   
+   # Instalar FAISS GPU (opcional, para melhor performance)
+   conda install -c conda-forge faiss-gpu -y
+   
+   # Instalar outras dependências
+   pip install -r requirements.txt
+   ```
+
+3. **Execute o backend**
+   ```bash
+   conda activate facial-detect
+   python backend/app/main.py
+   ```
+
+#### Opção B: Usar CPU (Sem GPU)
+
+O sistema funciona perfeitamente com CPU, apenas será mais lento:
+
+1. **Configure para usar CPU** (opcional, o sistema detecta automaticamente)
+   ```bash
+   # Windows
+   set DEVICE=cpu
+   
+   # Linux/Mac
+   export DEVICE=cpu
+   ```
+
+2. **Siga os passos normais de instalação**
+
+### ⚠️ Notas Importantes
+
+- **GPU vs CPU:** O sistema detecta automaticamente se há GPU disponível. Se não houver, usa CPU automaticamente.
+- **Portas:** Certifique-se de que as portas 3000 (frontend) e 8000 (backend) estão livres.
+- **CORS:** O backend está configurado para aceitar requisições do frontend em desenvolvimento.
+- **Banco de Dados:** O SQLite será criado automaticamente em `data/database.db` na primeira execução.
 
 ## 📱 Como Usar
 
@@ -248,19 +310,38 @@ Facial_Detect/
 │       ├── face_recognition.py  # Core facial recognition
 │       ├── liveness_detection.py # Anti-spoofing
 │       └── encryption.py        # Crypto utils
-├── frontend/
-│   ├── index.html               # Página principal
-│   ├── cadastro.html           # Cadastro de usuários
-│   ├── validacao.html          # Validação facial
-│   ├── admin.html              # Painel administrativo
-│   └── css/
-│       └── styles.css          # Estilos
+├── frontend/                    # Next.js Frontend
+│   ├── src/
+│   │   ├── app/                 # App Router pages
+│   │   │   ├── layout.tsx       # Root layout
+│   │   │   ├── page.tsx         # Home page
+│   │   │   ├── cadastro/        # Register page
+│   │   │   ├── validacao/       # Validation page
+│   │   │   └── admin/           # Admin page
+│   │   ├── components/          # React components
+│   │   │   ├── ui/              # shadcn/ui components
+│   │   │   ├── layout/          # Header, Footer
+│   │   │   ├── home/            # Home components
+│   │   │   ├── cadastro/        # Register components
+│   │   │   ├── validacao/       # Validation components
+│   │   │   └── admin/            # Admin components
+│   │   ├── lib/                 # Utilities
+│   │   │   ├── api/             # API clients
+│   │   │   ├── hooks/           # Custom hooks
+│   │   │   ├── store/           # Zustand store
+│   │   │   └── utils/           # Helper functions
+│   │   └── types/               # TypeScript types
+│   ├── package.json             # Dependencies
+│   ├── tailwind.config.ts       # Tailwind config
+│   ├── next.config.js           # Next.js config
+│   └── Dockerfile               # Frontend container
 ├── data/
 │   ├── database.db             # SQLite
 │   ├── faiss_index/            # Índices FAISS
 │   └── logs/                   # Logs criptografados
 ├── config.py                   # Configurações
-└── requirements.txt            # Dependências
+├── requirements.txt            # Dependências Python
+└── docker-compose.yml          # Docker orchestration
 ```
 
 ## 🔄 Fluxo de Funcionamento
@@ -367,13 +448,3 @@ tail -f data/logs/system.log
 - **Reconhecimento**: ~10ms por embedding
 - **Busca FAISS**: ~1ms para 1000 usuários
 - **Liveness**: ~20ms por análise
-
-## 🔮 Próximas Melhorias
-
-- [ ] Suporte a múltiplas faces
-- [ ] Detecção de máscaras
-- [ ] Integração com hardware (GPIO/MQTT)
-- [ ] API REST completa
-- [ ] Docker containerization
-- [ ] Testes automatizados
-- [ ] Dashboard em tempo real

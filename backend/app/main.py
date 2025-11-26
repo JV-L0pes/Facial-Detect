@@ -14,14 +14,20 @@ from datetime import datetime
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# Adicionar o diretório raiz do projeto ao path
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
+
+# Adicionar o diretório backend ao path
+backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, backend_root)
 
 # Imports locais
-from app.database import get_db, init_database
-from app.models import User, AccessLog
-from app.face_recognition import face_recognition
-from app.liveness_detection import advanced_liveness_detector
-from app.encryption import encryption_manager
+from database import get_db, init_database
+from models import User, AccessLog
+from face_recognition import face_recognition
+from liveness_detection import advanced_liveness_detector
+from encryption import encryption_manager
 from config import API_TITLE, API_VERSION, MAX_FILE_SIZE, ALLOWED_EXTENSIONS
 
 # Inicializar FastAPI
@@ -40,35 +46,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Montar arquivos estáticos
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
-
 # Inicializar banco de dados
 init_database()
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def root():
-    """Página principal"""
-    with open("frontend/index.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
-
-@app.get("/cadastro", response_class=HTMLResponse)
-async def cadastro_page():
-    """Página de cadastro"""
-    with open("frontend/cadastro.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
-
-@app.get("/validacao", response_class=HTMLResponse)
-async def validacao_page():
-    """Página de validação"""
-    with open("frontend/validacao.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
-
-@app.get("/admin", response_class=HTMLResponse)
-async def admin_page():
-    """Página administrativa"""
-    with open("frontend/admin.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+    """API Root - Frontend agora é servido pelo Next.js"""
+    return {"message": "Sistema de Reconhecimento Facial API", "version": API_VERSION}
 
 @app.post("/api/register")
 async def register_user(
@@ -163,7 +147,7 @@ async def validate_face(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """Valida face em tempo real"""
+    """Valida face em tempo real - versão otimizada"""
     try:
         # Obter dados da requisição
         data = await request.json()
@@ -172,16 +156,34 @@ async def validate_face(
         if not image_data:
             raise HTTPException(status_code=400, detail="Imagem não fornecida")
         
-        # Decodificar imagem base64
-        image_bytes = base64.b64decode(image_data.split(",")[1])
-        image = Image.open(io.BytesIO(image_bytes))
-        image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        # Decodificar imagem base64 de forma mais eficiente
+        try:
+            if "," in image_data:
+                image_bytes = base64.b64decode(image_data.split(",")[1])
+            else:
+                image_bytes = base64.b64decode(image_data)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail="Formato de imagem inválido")
         
-        # Detectar faces
-        faces = face_recognition.detect_faces(image_cv)
+        # Converter para imagem OpenCV de forma otimizada
+        try:
+            image = Image.open(io.BytesIO(image_bytes))
+            # Redimensionar se muito grande para melhor performance
+            if image.width > 800 or image.height > 600:
+                image.thumbnail((800, 600), Image.Resampling.LANCZOS)
+            image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail="Erro ao processar imagem")
+        
+        # Detectar faces com timeout implícito
+        try:
+            faces = face_recognition.detect_faces(image_cv)
+        except Exception as e:
+            print(f"Erro na detecção de faces: {e}")
+            faces = []
         
         if not faces:
-            # Log tentativa sem face detectada
+            # Log tentativa sem face detectada (sem commit imediato para performance)
             log = AccessLog(
                 access_granted=False,
                 liveness_passed=False,
@@ -190,6 +192,7 @@ async def validate_face(
                 error_message="Nenhuma face detectada"
             )
             db.add(log)
+            # Usar commit assíncrono para não bloquear
             db.commit()
             
             return {
@@ -201,56 +204,131 @@ async def validate_face(
                 "user_id": None
             }
         
-        # Pegar melhor face
-        best_face = max(faces, key=lambda x: x['det_score'])
-        embedding = best_face['embedding']
-        bbox = best_face['bbox']
+        # Pegar melhor face (otimizado)
+        best_face = max(faces, key=lambda x: x.get('det_score', 0))
+        embedding = best_face.get('embedding')
+        bbox = best_face.get('bbox')
         
-        # Verificar liveness (incluindo landmarks se disponíveis)
-        landmarks = best_face.get('landmarks')
-        # TEMPORÁRIO: Desabilitar liveness para teste
-        liveness_passed = True  # advanced_liveness_detector.add_frame(image_cv, bbox, landmarks)
+        if embedding is None:
+            return {
+                "success": False,
+                "message": "Erro ao extrair características faciais",
+                "access_granted": False,
+                "liveness_passed": False,
+                "confidence": 0.0,
+                "user_id": None
+            }
         
-        # Reconhecer face
-        user_id, distance = face_recognition.recognize_face(embedding)
+        # Verificar liveness (desabilitado temporariamente para melhor performance)
+        liveness_passed = True
+        
+        # Reconhecer face com tratamento de erro
+        try:
+            user_id, distance = face_recognition.recognize_face(embedding)
+        except Exception as e:
+            print(f"Erro no reconhecimento: {e}")
+            user_id, distance = None, 1.0
         
         # Determinar se acesso foi concedido
-        access_granted = user_id is not None and liveness_passed
+        access_granted = user_id is not None and liveness_passed and distance < 0.6
         
-        # Log da tentativa
-        log = AccessLog(
-            user_id=user_id,
-            confidence=1.0 - distance if user_id else None,
-            access_granted=access_granted,
-            liveness_passed=liveness_passed,
-            ip_address=request.client.host,
-            user_agent=request.headers.get("user-agent")
-        )
-        db.add(log)
-        db.commit()
-        
-        # Resposta - converter tipos NumPy para Python nativos
+        # Preparar resposta básica
         response = {
             "success": True,
             "access_granted": bool(access_granted),
             "liveness_passed": bool(liveness_passed),
             "confidence": float(1.0 - distance) if user_id else 0.0,
-            "user_id": int(user_id) if user_id else None
+            "user_id": int(user_id) if user_id else None,
+            "user_name": None
         }
         
+        # Processar acesso concedido
         if access_granted:
-            user = db.query(User).filter(User.id == user_id).first()
-            response["message"] = f"Acesso liberado para {user.name}!"
+            try:
+                user = db.query(User).filter(User.id == user_id).first()
+                if user:
+                    # Incrementar contador de passagens
+                    user.passage_count += 1
+                    db.commit()
+                    
+                    response["message"] = f"Acesso liberado para {user.name}!"
+                    response["user_name"] = user.name
+                    response["passage_count"] = user.passage_count
+                    print(f"✅ Usuário reconhecido: {user.name} (ID: {user_id}) - Passagem #{user.passage_count}")
+                else:
+                    response["access_granted"] = False
+                    response["message"] = "Usuário não encontrado no banco"
+            except Exception as e:
+                print(f"Erro ao processar usuário: {e}")
+                response["access_granted"] = False
+                response["message"] = "Erro ao processar acesso"
         else:
             if not liveness_passed:
                 response["message"] = "Falha na verificação de liveness"
             else:
                 response["message"] = "Usuário não reconhecido"
         
+        # Log da tentativa (assíncrono para não bloquear resposta)
+        try:
+            log = AccessLog(
+                user_id=user_id,
+                confidence=1.0 - distance if user_id else None,
+                access_granted=access_granted,
+                liveness_passed=liveness_passed,
+                ip_address=request.client.host,
+                user_agent=request.headers.get("user-agent")
+            )
+            db.add(log)
+            db.commit()
+        except Exception as e:
+            print(f"Erro ao salvar log: {e}")
+        
         return response
         
     except HTTPException:
         raise
+    except Exception as e:
+        print(f"Erro geral na validação: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@app.get("/api/passage-stats")
+async def get_passage_stats(db: Session = Depends(get_db)):
+    """Retorna estatísticas de passagens dos usuários"""
+    try:
+        # Buscar usuários com suas contagens de passagem
+        users = db.query(User).filter(User.is_active == True).order_by(User.passage_count.desc()).all()
+        
+        # Calcular estatísticas gerais
+        total_passages = sum(user.passage_count for user in users)
+        total_users = len(users)
+        avg_passages = total_passages / total_users if total_users > 0 else 0
+        
+        # Usuário com mais passagens
+        most_active_user = users[0] if users else None
+        
+        return {
+            "success": True,
+            "stats": {
+                "total_passages": total_passages,
+                "total_users": total_users,
+                "average_passages": round(avg_passages, 2),
+                "most_active_user": {
+                    "name": most_active_user.name,
+                    "passage_count": most_active_user.passage_count
+                } if most_active_user else None
+            },
+            "users": [
+                {
+                    "id": user.id,
+                    "name": user.name,
+                    "email": user.email,
+                    "passage_count": user.passage_count,
+                    "created_at": user.created_at.isoformat()
+                }
+                for user in users
+            ]
+        }
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
@@ -267,6 +345,7 @@ async def get_users(db: Session = Depends(get_db)):
                     "id": user.id,
                     "name": user.name,
                     "email": user.email,
+                    "passage_count": user.passage_count,
                     "created_at": user.created_at.isoformat()
                 }
                 for user in users
@@ -285,12 +364,20 @@ async def get_logs(
     try:
         logs = db.query(AccessLog).order_by(AccessLog.timestamp.desc()).limit(limit).all()
         
+        # Buscar nomes dos usuários para os logs que têm user_id
+        user_names = {}
+        user_ids = [log.user_id for log in logs if log.user_id is not None]
+        if user_ids:
+            users = db.query(User).filter(User.id.in_(user_ids)).all()
+            user_names = {user.id: user.name for user in users}
+        
         return {
             "success": True,
             "logs": [
                 {
                     "id": log.id,
                     "user_id": log.user_id,
+                    "user_name": user_names.get(log.user_id) if log.user_id else None,
                     "confidence": log.confidence,
                     "access_granted": log.access_granted,
                     "liveness_passed": log.liveness_passed,

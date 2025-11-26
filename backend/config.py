@@ -3,7 +3,7 @@ import torch
 from pathlib import Path
 
 # Configurações do projeto
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 MODELS_DIR = PROJECT_ROOT / "models"
 LOGS_DIR = DATA_DIR / "logs"
