@@ -1,6 +1,13 @@
 import os
-import torch
 from pathlib import Path
+
+# Tentar importar torch (opcional)
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    torch = None
 
 # Configurações do projeto
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -18,10 +25,16 @@ FAISS_INDEX_DIR.mkdir(exist_ok=True)
 # Configurações de GPU
 # Para forçar CPU, defina: DEVICE = "cpu"
 # Para usar GPU (se disponível), defina: DEVICE = "cuda" ou deixe automático
-DEVICE = os.getenv("DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
+if TORCH_AVAILABLE and torch.cuda.is_available():
+    DEVICE = os.getenv("DEVICE", "cuda")
+else:
+    DEVICE = os.getenv("DEVICE", "cpu")
 
 if DEVICE == "cuda":
-    if not torch.cuda.is_available():
+    if not TORCH_AVAILABLE:
+        print("⚠️  AVISO: PyTorch não instalado. Usando CPU.")
+        DEVICE = "cpu"
+    elif not torch.cuda.is_available():
         print("⚠️  AVISO: CUDA solicitado mas não disponível. Usando CPU.")
         DEVICE = "cpu"
     else:

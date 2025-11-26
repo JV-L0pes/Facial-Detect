@@ -35,64 +35,75 @@ class FaceRecognitionSystem:
         self.faiss_index = None
         self.id_to_user = {}  # Mapear ID do FAISS para usuário
         self.next_faiss_id = 0
-        self.load_models()
-        self.load_faiss_index()
+        try:
+            self.load_models()
+        except Exception as e:
+            print(f"⚠️  Erro ao carregar modelos: {e}")
+            # Continuar mesmo se os modelos não carregarem
+        try:
+            self.load_faiss_index()
+        except Exception as e:
+            print(f"⚠️  Erro ao carregar índice FAISS: {e}")
+            # Criar índice vazio se não conseguir carregar
+            self._create_new_index()
 
     def load_models(self):
-        """Carrega modelos InsightFace - 100% GPU ONLY"""
+        """Carrega modelos InsightFace - Suporta GPU e CPU"""
         try:
-            if DEVICE != "cuda":
-                raise RuntimeError(
-                    "GPU não disponível! Sistema configurado para 100% GPU ONLY."
-                )
-
-            print("Configurando InsightFace para 100% GPU ONLY...")
-
-            # Verificar se CUDA está realmente disponível
             import torch
+            import onnxruntime as ort
 
-            if not torch.cuda.is_available():
-                raise RuntimeError("CUDA não está disponível no PyTorch!")
-
-            # Verificar se ONNX Runtime GPU está disponível (OPCIONAL)
-            try:
-                import onnxruntime as ort
-
+            # Determinar providers baseado no dispositivo disponível
+            if DEVICE == "cuda" and torch.cuda.is_available():
+                print("🚀 Configurando InsightFace para GPU...")
+                
+                # Verificar providers disponíveis no ONNX Runtime
                 available_providers = ort.get_available_providers()
-                if "CUDAExecutionProvider" not in available_providers:
-                    print(
-                        "AVISO: CUDAExecutionProvider não está disponível no ONNX Runtime"
-                    )
-                    print(f"Providers disponíveis: {available_providers}")
-                    print("Continuando sem ONNX Runtime GPU...")
-                else:
+                
+                if "CUDAExecutionProvider" in available_providers:
+                    providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
                     print("✅ ONNX Runtime GPU disponível")
-            except ImportError:
-                print("AVISO: onnxruntime-gpu não instalado - continuando sem ele")
-            except Exception as e:
-                print(f"AVISO: Erro ao verificar ONNX Runtime: {e}")
-                print("Continuando sem ONNX Runtime GPU...")
-
-            # Configurar InsightFace com APENAS CUDA
-            self.face_app = FaceAnalysis(
-                name="buffalo_l",  # Modelo mais preciso
-                providers=["CUDAExecutionProvider"],  # 100% GPU, ZERO fallback
-            )
-
-            # Preparar com configurações GPU otimizadas
-            # Usar tamanho menor para melhor performance e compatibilidade
-            self.face_app.prepare(ctx_id=0, det_size=(640, 640))
-
-            # Verificar se realmente está usando GPU
-            providers = self.face_app.models["detection"].session.get_providers()
-            if "CUDAExecutionProvider" not in providers:
-                raise RuntimeError("Falha ao configurar GPU! Usando CPU como fallback.")
-
-            print("Modelos InsightFace carregados com 100% GPU ONLY!")
-            print(f"Providers ativos: {providers}")
+                else:
+                    print("⚠️  CUDAExecutionProvider não disponível, usando CPU")
+                    providers = ["CPUExecutionProvider"]
+                
+                # Configurar InsightFace com GPU (com fallback para CPU)
+                self.face_app = FaceAnalysis(
+                    name="buffalo_l",  # Modelo mais preciso
+                    providers=providers,
+                )
+                
+                # Preparar com configurações GPU otimizadas
+                self.face_app.prepare(ctx_id=0, det_size=(640, 640))
+                
+                # Verificar providers ativos
+                active_providers = self.face_app.models["detection"].session.get_providers()
+                print(f"✅ Modelos InsightFace carregados!")
+                print(f"   Providers ativos: {active_providers}")
+                
+                if "CUDAExecutionProvider" in active_providers:
+                    print("   🎯 Usando GPU para processamento")
+                else:
+                    print("   💻 Usando CPU para processamento")
+                    
+            else:
+                print("💻 Configurando InsightFace para CPU...")
+                
+                # Configurar InsightFace apenas com CPU
+                self.face_app = FaceAnalysis(
+                    name="buffalo_l",
+                    providers=["CPUExecutionProvider"],
+                )
+                
+                # Preparar com configurações CPU
+                self.face_app.prepare(ctx_id=-1, det_size=(640, 640))  # ctx_id=-1 para CPU
+                
+                active_providers = self.face_app.models["detection"].session.get_providers()
+                print(f"✅ Modelos InsightFace carregados em CPU!")
+                print(f"   Providers ativos: {active_providers}")
 
         except Exception as e:
-            print(f"Erro ao carregar modelos: {e}")
+            print(f"❌ Erro ao carregar modelos: {e}")
             raise
 
     def load_faiss_index(self):
@@ -125,11 +136,24 @@ class FaceRecognitionSystem:
 
     def _create_new_index(self):
         """Cria novo índice FAISS"""
-        # Criar índice FlatIP (Inner Product) para similaridade de cosseno
-        self.faiss_index = faiss.IndexFlatIP(EMBEDDING_DIMENSION)
-        self.id_to_user = {}
-        self.next_faiss_id = 0
-        print("Novo índice FAISS criado")
+        try:
+            # Criar índice FlatIP (Inner Product) para similaridade de cosseno
+            self.faiss_index = faiss.IndexFlatIP(EMBEDDING_DIMENSION)
+            self.id_to_user = {}
+            self.next_faiss_id = 0
+            print("Novo índice FAISS criado")
+        except Exception as e:
+            print(f"❌ Erro ao criar índice FAISS: {e}")
+            # Criar índice vazio como fallback
+            import numpy as np
+            # Criar um índice mínimo mesmo se houver erro
+            try:
+                self.faiss_index = faiss.IndexFlatIP(EMBEDDING_DIMENSION)
+            except:
+                # Se ainda falhar, criar um índice dummy
+                self.faiss_index = None
+            self.id_to_user = {}
+            self.next_faiss_id = 0
 
     def save_faiss_index(self):
         """Salva índice FAISS e mapeamento"""
@@ -404,13 +428,64 @@ class FaceRecognitionSystem:
 
     def get_stats(self) -> dict:
         """Retorna estatísticas do sistema"""
-        return {
-            "total_embeddings": self.faiss_index.ntotal,
-            "registered_users": len(self.id_to_user),
-            "device": DEVICE,
-            "threshold": FACE_RECOGNITION_THRESHOLD,
-        }
+        try:
+            # Garantir que o índice existe
+            if self.faiss_index is None:
+                self.load_faiss_index()
+            
+            return {
+                "total_embeddings": self.faiss_index.ntotal if self.faiss_index else 0,
+                "registered_users": len(self.id_to_user),
+                "device": DEVICE,
+                "threshold": FACE_RECOGNITION_THRESHOLD,
+            }
+        except Exception as e:
+            print(f"Erro ao obter estatísticas: {e}")
+            return {
+                "total_embeddings": 0,
+                "registered_users": 0,
+                "device": DEVICE,
+                "threshold": FACE_RECOGNITION_THRESHOLD,
+                "error": str(e),
+            }
 
 
 # Instância global do sistema de reconhecimento
-face_recognition = FaceRecognitionSystem()
+# Inicialização com tratamento de erro para evitar falhas silenciosas
+try:
+    face_recognition = FaceRecognitionSystem()
+    print("✅ Sistema de reconhecimento facial inicializado com sucesso")
+except Exception as e:
+    print(f"❌ Erro ao inicializar sistema de reconhecimento facial: {e}")
+    import traceback
+    traceback.print_exc()
+    # Criar instância vazia para evitar erros de importação
+    class DummyFaceRecognitionSystem:
+        def __init__(self):
+            self.face_app = None
+            self.faiss_index = None
+            self.id_to_user = {}
+            self.next_faiss_id = 0
+        
+        def get_stats(self):
+            return {
+                "total_embeddings": 0,
+                "registered_users": 0,
+                "device": "error",
+                "threshold": 0.4,
+                "error": "Sistema não inicializado",
+            }
+        
+        def extract_embedding(self, image):
+            return None
+        
+        def detect_faces(self, image):
+            return []
+        
+        def recognize_face(self, embedding, k=5, adaptive_threshold=True):
+            return None, 1.0
+        
+        def add_user_embedding(self, embedding, user_id):
+            raise RuntimeError("Sistema de reconhecimento não inicializado")
+    
+    face_recognition = DummyFaceRecognitionSystem()

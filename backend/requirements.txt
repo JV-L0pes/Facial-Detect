@@ -1,14 +1,34 @@
+# Servidor web
 fastapi>=0.104.1
 uvicorn[standard]>=0.24.0
+
+# Banco de dados
 sqlalchemy>=2.0.23
+
+# Reconhecimento facial
 insightface>=0.7.3
+onnxruntime>=1.23.0
+
+# Processamento de imagem
 opencv-python>=4.8.1.78
-numpy==1.26.4
 pillow>=10.1.0
+numpy==1.26.4
+
+# Busca de embeddings
+faiss-cpu>=1.7.4
+
+# PyTorch (opcional, para detecção de GPU)
+torch>=2.0.0
+
+# Criptografia
 pycryptodome>=3.19.0
+
+# Upload de arquivos
 python-multipart>=0.0.6
+
+# Autenticação (se necessário)
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
-python-dotenv>=1.0.0
-onnxruntime-gpu>=1.23.0
 
+# Configuração
+python-dotenv>=1.0.0

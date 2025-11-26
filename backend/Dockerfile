@@ -48,8 +48,11 @@ WORKDIR /app
 COPY backend/requirements.txt ./requirements.txt
 
 # Instalar dependências Python restantes (cache layer)
+# Nota: faiss-gpu e torch já estão instalados via conda/pip acima
+# Filtrar faiss-cpu e torch do requirements.txt para evitar conflitos
 RUN /bin/bash -lc "source /opt/miniconda/bin/activate faiss-gpu && \
-    pip install -r requirements.txt"
+    grep -v '^faiss-cpu' requirements.txt | grep -v '^torch' | grep -v '^torchvision' > requirements_docker.txt && \
+    pip install -r requirements_docker.txt"
 
 # Copiar código da aplicação (só esta parte vai rebuildar quando código mudar)
 COPY backend/ ./

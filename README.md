@@ -109,7 +109,7 @@ docker-compose build --no-cache
 
 ### 📋 Pré-requisitos
 
-- **Python 3.8+** instalado
+- **Python 3.11** (recomendado) ou Python 3.12
 - **Node.js 18+** instalado
 - **CUDA Toolkit** (opcional, apenas se quiser usar GPU)
 
@@ -122,43 +122,69 @@ docker-compose build --no-cache
    cd Facial_Detect
    ```
 
-2. **Crie e ative um ambiente virtual**
+2. **Crie e ative um ambiente virtual com Python 3.11**
    
    **Windows (PowerShell):**
    ```powershell
-   python -m venv venv
-   .\venv\Scripts\Activate.ps1
+   # Usar Python 3.11 especificamente
+   py -3.11 -m venv backend\.venv
+   cd backend
+   .\.venv\Scripts\Activate.ps1
    ```
    
    **Windows (CMD):**
    ```cmd
-   python -m venv venv
-   venv\Scripts\activate
+   py -3.11 -m venv backend\.venv
+   cd backend
+   .venv\Scripts\activate
    ```
    
    **Linux/Mac:**
    ```bash
-   python -m venv venv
-   source venv/bin/activate
+   python3.11 -m venv backend/.venv
+   cd backend
+   source .venv/bin/activate
    ```
 
 3. **Instale as dependências Python**
    ```bash
+   # Atualizar pip primeiro
+   python -m pip install --upgrade pip
+   
+   # Instalar dependências
    pip install -r requirements.txt
    ```
    
-   **Nota:** Se você não tiver GPU ou quiser usar CPU, o sistema detectará automaticamente e usará CPU. Para forçar CPU, você pode definir a variável de ambiente:
-   ```bash
-   # Windows
-   set DEVICE=cpu
-   
-   # Linux/Mac
-   export DEVICE=cpu
-   ```
+   **Nota sobre GPU vs CPU:**
+   - **Com GPU:** O sistema detectará automaticamente e usará GPU se disponível
+   - **Sem GPU ou forçar CPU:** O sistema funcionará normalmente em CPU (mais lento)
+   - Para forçar CPU explicitamente:
+     ```bash
+     # Windows
+     set DEVICE=cpu
+     
+     # Linux/Mac
+     export DEVICE=cpu
+     ```
 
 4. **Execute o backend**
+   
+   **Opção 1: Usando Python diretamente (recomendado)**
    ```bash
+   # Se estiver dentro de backend/
+   python app/main.py
+   
+   # Se estiver na raiz do projeto
    python backend/app/main.py
+   ```
+   
+   **Opção 2: Usando uvicorn**
+   ```bash
+   # Se estiver dentro de backend/
+   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+   
+   # Se estiver na raiz do projeto
+   uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
    ```
    
    O backend estará disponível em: **http://localhost:8000**
@@ -193,37 +219,44 @@ docker-compose build --no-cache
 
 ### 🔧 Opções Avançadas
 
-#### Opção A: Ambiente Conda (Recomendado para GPU)
+#### Opção A: Com GPU (NVIDIA)
 
-Se você tem GPU NVIDIA e quer suporte completo:
+Se você tem GPU NVIDIA e quer melhor performance:
 
-1. **Instale Miniconda** (se não tiver)
-   - Baixe de: https://docs.conda.io/en/latest/miniconda.html
+1. **Instale CUDA Toolkit** (se ainda não tiver)
+   - Baixe de: https://developer.nvidia.com/cuda-downloads
 
-2. **Crie e ative o ambiente conda**
+2. **Instale PyTorch com suporte CUDA** (opcional, já está no requirements.txt)
    ```bash
-   # Criar ambiente com Python 3.11
-   conda create -n facial-detect python=3.11 -y
-   conda activate facial-detect
-   
-   # Instalar FAISS GPU (opcional, para melhor performance)
+   # O requirements.txt já inclui torch, mas se quiser versão específica:
+   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+   ```
+
+3. **Instale FAISS GPU** (opcional, para melhor performance na busca)
+   ```bash
+   # Via conda (recomendado)
    conda install -c conda-forge faiss-gpu -y
    
-   # Instalar outras dependências
-   pip install -r requirements.txt
+   # Ou desinstale faiss-cpu e instale faiss-gpu
+   pip uninstall faiss-cpu -y
+   pip install faiss-gpu
    ```
 
-3. **Execute o backend**
-   ```bash
-   conda activate facial-detect
-   python backend/app/main.py
-   ```
+4. **Execute o backend normalmente**
+   - O sistema detectará automaticamente a GPU e usará CUDA
 
-#### Opção B: Usar CPU (Sem GPU)
+#### Opção B: Sem GPU (CPU Only)
 
 O sistema funciona perfeitamente com CPU, apenas será mais lento:
 
-1. **Configure para usar CPU** (opcional, o sistema detecta automaticamente)
+1. **Instale as dependências normalmente**
+   ```bash
+   pip install -r backend/requirements.txt
+   ```
+   - O `requirements.txt` já inclui `faiss-cpu` que funciona em CPU
+   - O sistema detectará automaticamente que não há GPU e usará CPU
+
+2. **Para forçar CPU explicitamente** (opcional):
    ```bash
    # Windows
    set DEVICE=cpu
@@ -232,14 +265,17 @@ O sistema funciona perfeitamente com CPU, apenas será mais lento:
    export DEVICE=cpu
    ```
 
-2. **Siga os passos normais de instalação**
+3. **Execute o backend normalmente**
+   - O sistema funcionará em modo CPU automaticamente
 
 ### ⚠️ Notas Importantes
 
-- **GPU vs CPU:** O sistema detecta automaticamente se há GPU disponível. Se não houver, usa CPU automaticamente.
+- **Python 3.11 recomendado:** Python 3.13 pode ter problemas com algumas dependências. Use Python 3.11 ou 3.12.
+- **GPU vs CPU:** O sistema detecta automaticamente se há GPU disponível. Se não houver, usa CPU automaticamente. Funciona em ambos os modos.
 - **Portas:** Certifique-se de que as portas 3000 (frontend) e 8000 (backend) estão livres.
 - **CORS:** O backend está configurado para aceitar requisições do frontend em desenvolvimento.
 - **Banco de Dados:** O SQLite será criado automaticamente em `data/database.db` na primeira execução.
+- **Dependências:** O `requirements.txt` está configurado para funcionar tanto com GPU quanto CPU. Para GPU, você pode instalar `faiss-gpu` e `torch` com CUDA separadamente.
 
 ## 📱 Como Usar
 

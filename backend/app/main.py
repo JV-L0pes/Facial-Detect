@@ -25,12 +25,12 @@ sys.path.insert(0, project_root)
 backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, backend_root)
 
-# Imports locais
-from database import get_db, init_database
-from models import User, AccessLog
-from face_recognition import face_recognition
-from liveness_detection import advanced_liveness_detector
-from encryption import encryption_manager
+# Imports locais - usar imports relativos (funciona tanto no Docker quanto localmente)
+from .database import get_db, init_database
+from .models import User, AccessLog
+from .face_recognition import face_recognition
+from .liveness_detection import advanced_liveness_detector
+from .encryption import encryption_manager
 from config import API_TITLE, API_VERSION, MAX_FILE_SIZE, ALLOWED_EXTENSIONS
 
 # Inicializar FastAPI
@@ -427,7 +427,17 @@ async def get_stats(db: Session = Depends(get_db)):
         )
 
         # Estatísticas do sistema de reconhecimento
-        face_stats = face_recognition.get_stats()
+        try:
+            face_stats = face_recognition.get_stats()
+        except Exception as e:
+            print(f"Erro ao obter estatísticas de reconhecimento facial: {e}")
+            face_stats = {
+                "total_embeddings": 0,
+                "registered_users": 0,
+                "device": "unknown",
+                "threshold": 0.4,
+                "error": str(e),
+            }
 
         return {
             "success": True,
